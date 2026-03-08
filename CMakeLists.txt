@@ -15,6 +15,7 @@ juce_generate_juce_header(CloudsReverb)
 target_sources(CloudsReverb PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/PresetManager.cpp
     Source/DSP/DattorroReverb.cpp
 )
 

@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Parameters.h"
 #include "DSP/DattorroReverb.h"
+#include "PresetManager.h"
 
 class CloudsReverbPlugin : public juce::AudioProcessor {
 public:
@@ -31,6 +32,7 @@ public:
     void setStateInformation(const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState apvts;
+    PresetManager presetManager;
 
 private:
     std::atomic<float>* decayParam = nullptr;

@@ -6,7 +6,8 @@ CloudsReverbPlugin::CloudsReverbPlugin()
     : AudioProcessor(BusesProperties()
           .withInput("Input", juce::AudioChannelSet::stereo(), true)
           .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts(*this, nullptr, "PARAMETERS", CloudsReverbParams::createLayout())
+      apvts(*this, nullptr, "PARAMETERS", CloudsReverbParams::createLayout()),
+      presetManager(apvts)
 {
     decayParam     = apvts.getRawParameterValue("decay");
     dampingParam   = apvts.getRawParameterValue("damping");
@@ -16,7 +17,7 @@ CloudsReverbPlugin::CloudsReverbPlugin()
     modSpeedParam  = apvts.getRawParameterValue("mod_speed");
 }
 
-void CloudsReverbPlugin::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
+void CloudsReverbPlugin::prepareToPlay(double sampleRate, int)
 {
     reverb_.prepare(sampleRate);
 }
@@ -37,21 +38,14 @@ void CloudsReverbPlugin::processBlock(juce::AudioBuffer<float>& buffer,
     if (numChannels < 2 || numSamples == 0)
         return;
 
-    const float decay     = decayParam->load();
-    const float damping   = dampingParam->load();
-    const float diffusion = diffusionParam->load();
-    const float amount    = amountParam->load();
-    const float gainDb    = inputGainParam->load();
-    const float modSpeed  = modSpeedParam->load();
+    const float gainLin = std::pow(10.0f, inputGainParam->load() / 20.0f);
 
-    const float gainLin = std::pow(10.0f, gainDb / 20.0f);
-
-    reverb_.setDecay(decay);
-    reverb_.setLp(damping);
-    reverb_.setDiffusion(diffusion);
-    reverb_.setAmount(amount);
+    reverb_.setDecay(decayParam->load());
+    reverb_.setLp(dampingParam->load());
+    reverb_.setDiffusion(diffusionParam->load());
+    reverb_.setAmount(amountParam->load());
     reverb_.setInputGain(gainLin);
-    reverb_.setModSpeed(modSpeed);
+    reverb_.setModSpeed(modSpeedParam->load());
 
     float* L = buffer.getWritePointer(0);
     float* R = buffer.getWritePointer(1);
