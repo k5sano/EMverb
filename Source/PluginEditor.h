@@ -1,16 +1,19 @@
-#pragma once #include <juce\_audio\_processors/juce\_audio\_processors.h> #include "PluginProcessor.h"
+#pragma once
 
-class CloudsReverbEditor : public juce::AudioProcessorEditor { public: explicit CloudsReverbEditor(CloudsReverbPlugin&); ~CloudsReverbEditor() override = default;
+#include <juce_audio_processors/juce_audio_processors.h>
+#include "PluginProcessor.h"
 
-```
-void paint(juce::Graphics&) override;
-void resized() override;
-```
+class CloudsReverbEditor : public juce::AudioProcessorEditor {
+public:
+    explicit CloudsReverbEditor(CloudsReverbPlugin&);
+    ~CloudsReverbEditor() override = default;
 
-private: CloudsReverbPlugin& processor; juce::GenericAudioProcessorEditor genericEditor;
+    void paint(juce::Graphics&) override;
+    void resized() override;
 
-```
-JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CloudsReverbEditor)
-```
+private:
+    CloudsReverbPlugin& processor;
+    juce::GenericAudioProcessorEditor genericEditor;
 
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CloudsReverbEditor)
 };
