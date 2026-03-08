@@ -1,0 +1,1 @@
+{ "permissions": { "allow": \[ "Read(**)", "Edit(Source/**)", "Edit(CMakeLists.txt)", "Edit(Tests/\*\*)", "Bash(cmake\*)", "Bash(ctest\*)", "Bash(git status\*)", "Bash(git diff\*)", "Bash(git log\*)", "Bash(git checkout\*)", "Bash(git stash\*)", "Bash(git commit\*)", "Bash(cat\*)", "Bash(ls\*)", "Bash(grep\*)" \], "deny": \[ "Bash(rm -rf\*)", "Bash(sudo\*)" \] } }
