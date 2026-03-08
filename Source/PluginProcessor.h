@@ -3,7 +3,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Parameters.h"
 #include "DSP/DattorroReverb.h"
-#include "SampleRateAdapter.h"
 
 class CloudsReverbPlugin : public juce::AudioProcessor {
 public:
@@ -42,8 +41,6 @@ private:
     std::atomic<float>* modSpeedParam = nullptr;
 
     DattorroReverb reverb_;
-    SampleRateAdapter adapter_;
-    juce::AudioBuffer<float> dryBuffer_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CloudsReverbPlugin)
 };

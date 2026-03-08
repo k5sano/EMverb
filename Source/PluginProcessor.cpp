@@ -16,11 +16,9 @@ CloudsReverbPlugin::CloudsReverbPlugin()
     modSpeedParam  = apvts.getRawParameterValue("mod_speed");
 }
 
-void CloudsReverbPlugin::prepareToPlay(double sampleRate, int samplesPerBlock)
+void CloudsReverbPlugin::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
 {
-    reverb_.init();
-    adapter_.prepare(sampleRate, samplesPerBlock);
-    dryBuffer_.setSize(2, samplesPerBlock);
+    reverb_.prepare(sampleRate);
 }
 
 void CloudsReverbPlugin::releaseResources()
@@ -55,16 +53,10 @@ void CloudsReverbPlugin::processBlock(juce::AudioBuffer<float>& buffer,
     reverb_.setInputGain(gainLin);
     reverb_.setModSpeed(modSpeed);
 
-    dryBuffer_.setSize(2, numSamples, false, false, true);
-    for (int ch = 0; ch < 2; ++ch)
-        dryBuffer_.copyFrom(ch, 0, buffer, ch, 0, numSamples);
+    float* L = buffer.getWritePointer(0);
+    float* R = buffer.getWritePointer(1);
 
-    float* outL = buffer.getWritePointer(0);
-    float* outR = buffer.getWritePointer(1);
-    const float* inL = dryBuffer_.getReadPointer(0);
-    const float* inR = dryBuffer_.getReadPointer(1);
-
-    adapter_.process(inL, inR, outL, outR, numSamples, reverb_);
+    reverb_.process(L, R, numSamples);
 }
 
 juce::AudioProcessorEditor* CloudsReverbPlugin::createEditor()

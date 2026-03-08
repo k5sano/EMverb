@@ -16,7 +16,6 @@ target_sources(CloudsReverb PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
     Source/DSP/DattorroReverb.cpp
-    Source/SampleRateAdapter.cpp
 )
 
 target_include_directories(CloudsReverb PRIVATE
@@ -57,7 +56,6 @@ if(BUILD_TESTS)
         add_executable(CloudsReverbTests
             Tests/ReverbTests.cpp
             Source/DSP/DattorroReverb.cpp
-            Source/SampleRateAdapter.cpp
         )
         target_include_directories(CloudsReverbTests PRIVATE
             Source

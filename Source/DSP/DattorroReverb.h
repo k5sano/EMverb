@@ -4,21 +4,31 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdint>
+#include <memory>
+#include <vector>
 
 /// Dattorro plate reverb — standalone reimplementation of
 /// Mutable Instruments Clouds reverb (clouds/dsp/fx/reverb.h).
 /// No external dependencies (eurorack / stmlib).
-/// Internal sample rate: 32 kHz.
+///
+/// Runs at any host sample rate. Delay tap lengths are scaled
+/// from the 32kHz reference values by (sampleRate / 32000).
 class DattorroReverb {
 public:
     DattorroReverb();
     ~DattorroReverb() = default;
 
-    void init();
+    /// Call once before processing. Allocates delay buffer scaled
+    /// for the given sample rate.
+    void prepare(double sampleRate);
+
+    /// Reset all internal state to silence (keeps buffer allocation).
     void clear();
 
+    /// Process L/R buffers in-place.
     void process(float* inOutL, float* inOutR, int numSamples);
 
+    // --- Parameter setters (call before process or per-block) ---
     void setAmount(float amount)       { amount_ = amount; }
     void setInputGain(float gain)      { inputGain_ = gain; }
     void setDecay(float time)          { reverbTime_ = time; }
@@ -27,20 +37,60 @@ public:
     void setModSpeed(float speed);
 
 private:
-    static constexpr int kBufferSize = 16384;
-    static constexpr int kBufferMask = kBufferSize - 1;
-    float buffer_[kBufferSize] = {};
-    int writePtr_ = 0;
+    // --- 32kHz reference tap lengths (Clouds original) ---
+    static constexpr int kRefAp1   = 113;
+    static constexpr int kRefAp2   = 162;
+    static constexpr int kRefAp3   = 241;
+    static constexpr int kRefAp4   = 399;
+    static constexpr int kRefDap1a = 1653;
+    static constexpr int kRefDap1b = 2038;
+    static constexpr int kRefDel1  = 3411;
+    static constexpr int kRefDap2a = 1913;
+    static constexpr int kRefDap2b = 1663;
+    static constexpr int kRefDel2  = 4782;
 
+    // --- Scaled tap lengths (set in prepare()) ---
+    int tapAp1_   = kRefAp1;
+    int tapAp2_   = kRefAp2;
+    int tapAp3_   = kRefAp3;
+    int tapAp4_   = kRefAp4;
+    int tapDap1a_ = kRefDap1a;
+    int tapDap1b_ = kRefDap1b;
+    int tapDel1_  = kRefDel1;
+    int tapDap2a_ = kRefDap2a;
+    int tapDap2b_ = kRefDap2b;
+    int tapDel2_  = kRefDel2;
+
+    // --- Delay line bases (computed in prepare()) ---
+    int baseAp1_   = 0;
+    int baseAp2_   = 0;
+    int baseAp3_   = 0;
+    int baseAp4_   = 0;
+    int baseDap1a_ = 0;
+    int baseDap1b_ = 0;
+    int baseDel1_  = 0;
+    int baseDap2a_ = 0;
+    int baseDap2b_ = 0;
+    int baseDel2_  = 0;
+
+    // --- Delay buffer ---
+    std::unique_ptr<float[]> buffer_;
+    int bufferSize_ = 0;
+    int bufferMask_ = 0;
+    int writePtr_   = 0;
+
+    // --- Parameters ---
     float amount_     = 0.5f;
     float inputGain_  = 1.0f;
     float reverbTime_ = 0.5f;
     float diffusion_  = 0.625f;
     float lp_         = 0.7f;
 
+    // --- LP decay state ---
     float lpDecay1_ = 0.0f;
     float lpDecay2_ = 0.0f;
 
+    // --- Cosine LFO ---
     struct CosineOsc {
         float phase = 0.0f;
         float freq  = 0.0f;
@@ -51,38 +101,22 @@ private:
     CosineOsc lfo_[2];
     float lfoValue_[2] = {};
 
-    static constexpr int kAp1Base = 0;
-    static constexpr int kAp1Len  = 113;
-    static constexpr int kAp2Base = kAp1Base + kAp1Len + 1;
-    static constexpr int kAp2Len  = 162;
-    static constexpr int kAp3Base = kAp2Base + kAp2Len + 1;
-    static constexpr int kAp3Len  = 241;
-    static constexpr int kAp4Base = kAp3Base + kAp3Len + 1;
-    static constexpr int kAp4Len  = 399;
-    static constexpr int kDap1aBase = kAp4Base + kAp4Len + 1;
-    static constexpr int kDap1aLen  = 1653;
-    static constexpr int kDap1bBase = kDap1aBase + kDap1aLen + 1;
-    static constexpr int kDap1bLen  = 2038;
-    static constexpr int kDel1Base  = kDap1bBase + kDap1bLen + 1;
-    static constexpr int kDel1Len   = 3411;
-    static constexpr int kDap2aBase = kDel1Base + kDel1Len + 1;
-    static constexpr int kDap2aLen  = 1913;
-    static constexpr int kDap2bBase = kDap2aBase + kDap2aLen + 1;
-    static constexpr int kDap2bLen  = 1663;
-    static constexpr int kDel2Base  = kDap2bBase + kDap2bLen + 1;
-    static constexpr int kDel2Len   = 4782;
+    double sampleRate_ = 48000.0;
+    float ratioScale_  = 1.0f;
 
-    float readDelay(int base, int offset) const;
-    float readDelayInterp(int base, float offset) const;
-    void writeDelay(int base, int offset, float value);
-    float readTail(int base, int length) const;
+    // --- Smear tap offsets (scaled) ---
+    float smearRead_   = 10.0f;
+    float smearAmp_    = 60.0f;
+    int   smearWrite_  = 100;
+    float loopModRead_ = 4680.0f;
+    float loopModAmp_  = 100.0f;
 
-    float accumulator_   = 0.0f;
-    float previousRead_  = 0.0f;
+    // --- Context-style processing helpers ---
+    float accumulator_  = 0.0f;
+    float previousRead_ = 0.0f;
 
     void ctxLoad(float value);
     void ctxRead(float value, float scale);
-    void ctxReadDelay(int base, int offset, float scale);
     void ctxReadTail(int base, int length, float scale);
     void ctxInterpolate(int base, float offset, float scale);
     void ctxInterpolateLfo(int base, float offset, int lfoIdx,
@@ -91,5 +125,7 @@ private:
     void ctxWriteDelay(int base, int offset, float scale);
     void ctxWriteAllPass(int base, int offset, float scale);
     void ctxLp(float& state, float coefficient);
-    void ctxAdvanceWritePtr();
+
+    static int nextPow2(int n);
+    int scaleTap(int refTap) const;
 };

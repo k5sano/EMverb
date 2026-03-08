@@ -1,5 +1,10 @@
 #include "DattorroReverb.h"
 #include <cmath>
+#include <cstring>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 // ============================================================
 // CosineOsc
@@ -24,28 +29,87 @@ void DattorroReverb::CosineOsc::setFrequency(float f)
 }
 
 // ============================================================
-// DattorroReverb
+// Helpers
+// ============================================================
+
+int DattorroReverb::nextPow2(int n)
+{
+    int v = 1;
+    while (v < n) v <<= 1;
+    return v;
+}
+
+int DattorroReverb::scaleTap(int refTap) const
+{
+    return std::max(1, static_cast<int>(
+        std::round(refTap * ratioScale_)));
+}
+
+// ============================================================
+// Lifecycle
 // ============================================================
 
 DattorroReverb::DattorroReverb()
 {
-    init();
+    prepare(48000.0);
 }
 
-void DattorroReverb::init()
+void DattorroReverb::prepare(double sampleRate)
 {
+    sampleRate_ = sampleRate;
+    ratioScale_ = static_cast<float>(sampleRate / 32000.0);
+
+    // Scale all taps
+    tapAp1_   = scaleTap(kRefAp1);
+    tapAp2_   = scaleTap(kRefAp2);
+    tapAp3_   = scaleTap(kRefAp3);
+    tapAp4_   = scaleTap(kRefAp4);
+    tapDap1a_ = scaleTap(kRefDap1a);
+    tapDap1b_ = scaleTap(kRefDap1b);
+    tapDel1_  = scaleTap(kRefDel1);
+    tapDap2a_ = scaleTap(kRefDap2a);
+    tapDap2b_ = scaleTap(kRefDap2b);
+    tapDel2_  = scaleTap(kRefDel2);
+
+    // Compute delay line bases (each line gets length+1 slots)
+    baseAp1_   = 0;
+    baseAp2_   = baseAp1_   + tapAp1_   + 1;
+    baseAp3_   = baseAp2_   + tapAp2_   + 1;
+    baseAp4_   = baseAp3_   + tapAp3_   + 1;
+    baseDap1a_ = baseAp4_   + tapAp4_   + 1;
+    baseDap1b_ = baseDap1a_ + tapDap1a_ + 1;
+    baseDel1_  = baseDap1b_ + tapDap1b_ + 1;
+    baseDap2a_ = baseDel1_  + tapDel1_  + 1;
+    baseDap2b_ = baseDap2a_ + tapDap2a_ + 1;
+    baseDel2_  = baseDap2b_ + tapDap2b_ + 1;
+
+    int totalNeeded = baseDel2_ + tapDel2_ + 2;
+    bufferSize_ = nextPow2(totalNeeded);
+    bufferMask_ = bufferSize_ - 1;
+
+    buffer_ = std::make_unique<float[]>(bufferSize_);
     clear();
-    lfo_[0].setFrequency(0.5f / 32000.0f);
-    lfo_[1].setFrequency(0.3f / 32000.0f);
-    lp_ = 0.7f;
-    diffusion_ = 0.625f;
+
+    // Scale smear / modulation offsets
+    smearRead_   = 10.0f  * ratioScale_;
+    smearAmp_    = 60.0f  * ratioScale_;
+    smearWrite_  = scaleTap(100);
+    loopModRead_ = 4680.0f * ratioScale_;
+    loopModAmp_  = 100.0f  * ratioScale_;
+
+    // LFO: base frequencies are per-sample at 32kHz -> scale
+    float lfoScale = 1.0f / static_cast<float>(sampleRate);
+    lfo_[0].setFrequency(0.5f * lfoScale);
+    lfo_[1].setFrequency(0.3f * lfoScale);
+
     lpDecay1_ = 0.0f;
     lpDecay2_ = 0.0f;
 }
 
 void DattorroReverb::clear()
 {
-    std::memset(buffer_, 0, sizeof(buffer_));
+    if (buffer_)
+        std::memset(buffer_.get(), 0, sizeof(float) * bufferSize_);
     writePtr_ = 0;
     lpDecay1_ = 0.0f;
     lpDecay2_ = 0.0f;
@@ -54,40 +118,13 @@ void DattorroReverb::clear()
 void DattorroReverb::setModSpeed(float speed)
 {
     float scale = 0.2f + speed * 1.6f;
-    lfo_[0].setFrequency(0.5f / 32000.0f * scale);
-    lfo_[1].setFrequency(0.3f / 32000.0f * scale);
+    float lfoScale = 1.0f / static_cast<float>(sampleRate_);
+    lfo_[0].setFrequency(0.5f * lfoScale * scale);
+    lfo_[1].setFrequency(0.3f * lfoScale * scale);
 }
 
 // ============================================================
-// Delay helpers
-// ============================================================
-
-float DattorroReverb::readDelay(int base, int offset) const
-{
-    return buffer_[(writePtr_ + base + offset) & kBufferMask];
-}
-
-float DattorroReverb::readDelayInterp(int base, float offset) const
-{
-    int intPart = static_cast<int>(offset);
-    float fracPart = offset - static_cast<float>(intPart);
-    float a = buffer_[(writePtr_ + base + intPart) & kBufferMask];
-    float b = buffer_[(writePtr_ + base + intPart + 1) & kBufferMask];
-    return a + (b - a) * fracPart;
-}
-
-void DattorroReverb::writeDelay(int base, int offset, float value)
-{
-    buffer_[(writePtr_ + base + offset) & kBufferMask] = value;
-}
-
-float DattorroReverb::readTail(int base, int length) const
-{
-    return buffer_[(writePtr_ + base + length - 1) & kBufferMask];
-}
-
-// ============================================================
-// Context-style helpers
+// Context helpers
 // ============================================================
 
 void DattorroReverb::ctxLoad(float value)
@@ -100,34 +137,30 @@ void DattorroReverb::ctxRead(float value, float scale)
     accumulator_ += value * scale;
 }
 
-void DattorroReverb::ctxReadDelay(int base, int offset, float scale)
-{
-    float r = readDelay(base, offset);
-    previousRead_ = r;
-    accumulator_ += r * scale;
-}
-
 void DattorroReverb::ctxReadTail(int base, int length, float scale)
 {
-    float r = readTail(base, length);
+    float r = buffer_[(writePtr_ + base + length - 1) & bufferMask_];
     previousRead_ = r;
     accumulator_ += r * scale;
 }
 
 void DattorroReverb::ctxInterpolate(int base, float offset, float scale)
 {
-    float x = readDelayInterp(base, offset);
+    int intPart = static_cast<int>(offset);
+    float frac = offset - static_cast<float>(intPart);
+    float a = buffer_[(writePtr_ + base + intPart) & bufferMask_];
+    float b = buffer_[(writePtr_ + base + intPart + 1) & bufferMask_];
+    float x = a + (b - a) * frac;
     previousRead_ = x;
     accumulator_ += x * scale;
 }
 
-void DattorroReverb::ctxInterpolateLfo(int base, float offset, int lfoIdx,
-                                        float amplitude, float scale)
+void DattorroReverb::ctxInterpolateLfo(
+    int base, float offset, int lfoIdx,
+    float amplitude, float scale)
 {
     float modOffset = offset + amplitude * lfoValue_[lfoIdx];
-    float x = readDelayInterp(base, modOffset);
-    previousRead_ = x;
-    accumulator_ += x * scale;
+    ctxInterpolate(base, modOffset, scale);
 }
 
 void DattorroReverb::ctxWrite(float& value, float scale)
@@ -138,13 +171,13 @@ void DattorroReverb::ctxWrite(float& value, float scale)
 
 void DattorroReverb::ctxWriteDelay(int base, int offset, float scale)
 {
-    buffer_[(writePtr_ + base + offset) & kBufferMask] = accumulator_;
+    buffer_[(writePtr_ + base + offset) & bufferMask_] = accumulator_;
     accumulator_ *= scale;
 }
 
 void DattorroReverb::ctxWriteAllPass(int base, int offset, float scale)
 {
-    buffer_[(writePtr_ + base + offset) & kBufferMask] = accumulator_;
+    buffer_[(writePtr_ + base + offset) & bufferMask_] = accumulator_;
     accumulator_ *= scale;
     accumulator_ += previousRead_;
 }
@@ -155,29 +188,25 @@ void DattorroReverb::ctxLp(float& state, float coefficient)
     accumulator_ = state;
 }
 
-void DattorroReverb::ctxAdvanceWritePtr()
-{
-    --writePtr_;
-    if (writePtr_ < 0)
-        writePtr_ += kBufferSize;
-}
-
 // ============================================================
 // Process — Dattorro plate reverb (Clouds topology)
 // ============================================================
 
 void DattorroReverb::process(float* inOutL, float* inOutR, int numSamples)
 {
-    const float kap = diffusion_;
-    const float klp = lp_;
-    const float krt = reverbTime_;
-    const float amt = amount_;
+    const float kap  = diffusion_;
+    const float klp  = lp_;
+    const float krt  = reverbTime_;
+    const float amt  = amount_;
     const float gain = inputGain_;
 
     for (int i = 0; i < numSamples; ++i)
     {
-        ctxAdvanceWritePtr();
+        // Advance write pointer
+        --writePtr_;
+        if (writePtr_ < 0) writePtr_ += bufferSize_;
 
+        // Update LFO every 32 samples (Clouds behaviour)
         if ((writePtr_ & 31) == 0)
         {
             lfoValue_[0] = lfo_[0].next();
@@ -190,57 +219,58 @@ void DattorroReverb::process(float* inOutL, float* inOutR, int numSamples)
         float wet;
         float apout = 0.0f;
 
-        // Smear AP1
-        ctxInterpolateLfo(kAp1Base, 10.0f, 0, 60.0f, 1.0f);
-        ctxWriteDelay(kAp1Base, 100, 0.0f);
+        // --- Smear AP1 inside the loop ---
+        ctxInterpolateLfo(baseAp1_, smearRead_, 0, smearAmp_, 1.0f);
+        ctxWriteDelay(baseAp1_, smearWrite_, 0.0f);
 
-        // Input (mono sum)
+        // --- Read input (mono sum) ---
         ctxLoad(0.0f);
         ctxRead(inOutL[i] + inOutR[i], gain);
 
-        // Diffuse through 4 allpasses
-        ctxReadTail(kAp1Base, kAp1Len, kap);
-        ctxWriteAllPass(kAp1Base, 0, -kap);
+        // --- Diffuse through 4 allpasses ---
+        ctxReadTail(baseAp1_, tapAp1_, kap);
+        ctxWriteAllPass(baseAp1_, 0, -kap);
 
-        ctxReadTail(kAp2Base, kAp2Len, kap);
-        ctxWriteAllPass(kAp2Base, 0, -kap);
+        ctxReadTail(baseAp2_, tapAp2_, kap);
+        ctxWriteAllPass(baseAp2_, 0, -kap);
 
-        ctxReadTail(kAp3Base, kAp3Len, kap);
-        ctxWriteAllPass(kAp3Base, 0, -kap);
+        ctxReadTail(baseAp3_, tapAp3_, kap);
+        ctxWriteAllPass(baseAp3_, 0, -kap);
 
-        ctxReadTail(kAp4Base, kAp4Len, kap);
-        ctxWriteAllPass(kAp4Base, 0, -kap);
+        ctxReadTail(baseAp4_, tapAp4_, kap);
+        ctxWriteAllPass(baseAp4_, 0, -kap);
 
         ctxWrite(apout, 0.0f);
 
-        // Loop side A
+        // --- Loop side A ---
         ctxLoad(apout);
-        ctxInterpolateLfo(kDel2Base, 4680.0f, 1, 100.0f, krt);
+        ctxInterpolateLfo(baseDel2_, loopModRead_, 1,
+                          loopModAmp_, krt);
         ctxLp(lpDecay1_, klp);
 
-        ctxReadTail(kDap1aBase, kDap1aLen, -kap);
-        ctxWriteAllPass(kDap1aBase, 0, kap);
+        ctxReadTail(baseDap1a_, tapDap1a_, -kap);
+        ctxWriteAllPass(baseDap1a_, 0, kap);
 
-        ctxReadTail(kDap1bBase, kDap1bLen, kap);
-        ctxWriteAllPass(kDap1bBase, 0, -kap);
+        ctxReadTail(baseDap1b_, tapDap1b_, kap);
+        ctxWriteAllPass(baseDap1b_, 0, -kap);
 
-        ctxWriteDelay(kDel1Base, 0, 2.0f);
+        ctxWriteDelay(baseDel1_, 0, 2.0f);
         ctxWrite(wet, 0.0f);
 
         inOutL[i] += (wet - inOutL[i]) * amt;
 
-        // Loop side B
+        // --- Loop side B ---
         ctxLoad(apout);
-        ctxReadTail(kDel1Base, kDel1Len, krt);
+        ctxReadTail(baseDel1_, tapDel1_, krt);
         ctxLp(lpDecay2_, klp);
 
-        ctxReadTail(kDap2aBase, kDap2aLen, kap);
-        ctxWriteAllPass(kDap2aBase, 0, -kap);
+        ctxReadTail(baseDap2a_, tapDap2a_, kap);
+        ctxWriteAllPass(baseDap2a_, 0, -kap);
 
-        ctxReadTail(kDap2bBase, kDap2bLen, -kap);
-        ctxWriteAllPass(kDap2bBase, 0, kap);
+        ctxReadTail(baseDap2b_, tapDap2b_, -kap);
+        ctxWriteAllPass(baseDap2b_, 0, kap);
 
-        ctxWriteDelay(kDel2Base, 0, 2.0f);
+        ctxWriteDelay(baseDel2_, 0, 2.0f);
         ctxWrite(wet, 0.0f);
 
         inOutR[i] += (wet - inOutR[i]) * amt;
