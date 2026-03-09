@@ -9,7 +9,7 @@ juce::File PresetManager::getPresetDirectory() const
 {
     auto dir = juce::File::getSpecialLocation(
         juce::File::userApplicationDataDirectory)
-        .getChildFile("CloudsReverb")
+        .getChildFile("EMVerb")
         .getChildFile("Presets");
     dir.createDirectory();
     return dir;

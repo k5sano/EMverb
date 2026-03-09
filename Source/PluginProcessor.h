@@ -5,10 +5,10 @@
 #include "DSP/DattorroReverb.h"
 #include "PresetManager.h"
 
-class CloudsReverbPlugin : public juce::AudioProcessor {
+class EMVerbPlugin : public juce::AudioProcessor {
 public:
-    CloudsReverbPlugin();
-    ~CloudsReverbPlugin() override = default;
+    EMVerbPlugin();
+    ~EMVerbPlugin() override = default;
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -17,7 +17,7 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "CloudsReverb"; }
+    const juce::String getName() const override { return "EMVerb"; }
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 5.0; }
@@ -44,5 +44,5 @@ private:
 
     DattorroReverb reverb_;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CloudsReverbPlugin)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EMVerbPlugin)
 };

@@ -1,11 +1,11 @@
 #include "PluginEditor.h"
 
-static const juce::Colour kReverbColour   {0xFF5599DD};  // blue
-static const juce::Colour kMixColour      {0xFF44BB66};  // green
-static const juce::Colour kModColour      {0xFFDD7744};  // orange
-static const juce::Colour kBgColour       {0xFF1A1A2E};  // dark navy
+static const juce::Colour kReverbColour   {0xFF5599DD};
+static const juce::Colour kMixColour      {0xFF44BB66};
+static const juce::Colour kModColour      {0xFFDD7744};
+static const juce::Colour kBgColour       {0xFF1A1A2E};
 
-CloudsReverbEditor::CloudsReverbEditor(CloudsReverbPlugin& p)
+EMVerbEditor::EMVerbEditor(EMVerbPlugin& p)
     : AudioProcessorEditor(p), processor(p)
 {
     // Reverb block (blue)
@@ -75,11 +75,39 @@ CloudsReverbEditor::CloudsReverbEditor(CloudsReverbPlugin& p)
         }
     };
 
+    // Image load button
+    addAndMakeVisible(loadImageButton);
+    loadImageButton.onClick = [this] { loadBackgroundImage(); };
+
+    // Opacity knob (small)
+    addAndMakeVisible(opacityKnob);
+    opacityKnob.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    opacityKnob.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+    opacityKnob.setRange(0.0, 1.0, 0.01);
+    opacityKnob.setValue(0.3);
+    opacityKnob.setColour(juce::Slider::rotarySliderFillColourId,
+                          juce::Colours::white.withAlpha(0.5f));
+    opacityKnob.setColour(juce::Slider::thumbColourId,
+                          juce::Colours::white);
+    opacityKnob.onValueChange = [this]
+    {
+        imageOpacity_ = static_cast<float>(opacityKnob.getValue());
+        repaint();
+    };
+
+    addAndMakeVisible(opacityLabel);
+    opacityLabel.setText("Op", juce::dontSendNotification);
+    opacityLabel.setJustificationType(juce::Justification::centred);
+    opacityLabel.setColour(juce::Label::textColourId,
+                           juce::Colours::white.withAlpha(0.5f));
+    opacityLabel.setFont(juce::FontOptions(11.0f));
+
     refreshPresetList();
+    restoreImagePath();
     setSize(620, 340);
 }
 
-void CloudsReverbEditor::setupKnob(juce::Slider& knob,
+void EMVerbEditor::setupKnob(juce::Slider& knob,
                                      juce::Label& label,
                                      const juce::String& text,
                                      juce::Colour colour)
@@ -100,7 +128,7 @@ void CloudsReverbEditor::setupKnob(juce::Slider& knob,
     label.setFont(juce::FontOptions(16.0f, juce::Font::bold));
 }
 
-void CloudsReverbEditor::refreshPresetList()
+void EMVerbEditor::refreshPresetList()
 {
     presetBox.clear(juce::dontSendNotification);
     auto list = processor.presetManager.getPresetList();
@@ -116,72 +144,140 @@ void CloudsReverbEditor::refreshPresetList()
     }
 }
 
-void CloudsReverbEditor::paint(juce::Graphics& g)
+void EMVerbEditor::loadBackgroundImage()
+{
+    auto chooser = std::make_shared<juce::FileChooser>(
+        "Select Background Image",
+        juce::File::getSpecialLocation(juce::File::userPicturesDirectory),
+        "*.png;*.jpg;*.jpeg;*.gif;*.bmp");
+
+    chooser->launchAsync(juce::FileBrowserComponent::openMode
+                       | juce::FileBrowserComponent::canSelectFiles,
+        [this, chooser](const juce::FileChooser&)
+        {
+            auto file = chooser->getResult();
+            if (file.existsAsFile())
+            {
+                bgImage = juce::ImageFileFormat::loadFrom(file);
+                saveImagePath(file);
+                repaint();
+            }
+        });
+}
+
+juce::File EMVerbEditor::getImageSettingsFile() const
+{
+    return juce::File::getSpecialLocation(
+        juce::File::userApplicationDataDirectory)
+        .getChildFile("EMVerb")
+        .getChildFile("bg_image.txt");
+}
+
+void EMVerbEditor::saveImagePath(const juce::File& imageFile)
+{
+    auto settingsFile = getImageSettingsFile();
+    settingsFile.getParentDirectory().createDirectory();
+    settingsFile.replaceWithText(imageFile.getFullPathName());
+}
+
+void EMVerbEditor::restoreImagePath()
+{
+    auto settingsFile = getImageSettingsFile();
+    if (settingsFile.existsAsFile())
+    {
+        auto path = settingsFile.loadFileAsString().trim();
+        juce::File imageFile(path);
+        if (imageFile.existsAsFile())
+            bgImage = juce::ImageFileFormat::loadFrom(imageFile);
+    }
+}
+
+void EMVerbEditor::paint(juce::Graphics& g)
 {
     g.fillAll(kBgColour);
 
+    // Draw background image if loaded
+    if (bgImage.isValid() && imageOpacity_ > 0.001f)
+    {
+        auto area = getLocalBounds().toFloat();
+        float imgW = static_cast<float>(bgImage.getWidth());
+        float imgH = static_cast<float>(bgImage.getHeight());
+        float scale = std::max(area.getWidth() / imgW,
+                               area.getHeight() / imgH);
+        float drawW = imgW * scale;
+        float drawH = imgH * scale;
+        float x = (area.getWidth()  - drawW) * 0.5f;
+        float y = (area.getHeight() - drawH) * 0.5f;
+
+        g.setOpacity(imageOpacity_);
+        g.drawImage(bgImage,
+                    x, y, drawW, drawH,
+                    0, 0, bgImage.getWidth(), bgImage.getHeight());
+        g.setOpacity(1.0f);
+    }
+
     // Section backgrounds
     auto bounds = getLocalBounds().reduced(8);
-    auto presetArea = bounds.removeFromTop(36);
-    (void)presetArea;
+    bounds.removeFromTop(36);
     bounds.removeFromTop(8);
 
     int knobW = bounds.getWidth() / 6;
 
-    // Reverb section (3 knobs)
     auto reverbArea = bounds.removeFromLeft(knobW * 3);
     g.setColour(kReverbColour.withAlpha(0.08f));
     g.fillRoundedRectangle(reverbArea.toFloat().reduced(2), 8.0f);
     g.setColour(kReverbColour.withAlpha(0.3f));
     g.drawRoundedRectangle(reverbArea.toFloat().reduced(2), 8.0f, 1.0f);
 
-    // Mix section (2 knobs)
     auto mixArea = bounds.removeFromLeft(knobW * 2);
     g.setColour(kMixColour.withAlpha(0.08f));
     g.fillRoundedRectangle(mixArea.toFloat().reduced(2), 8.0f);
     g.setColour(kMixColour.withAlpha(0.3f));
     g.drawRoundedRectangle(mixArea.toFloat().reduced(2), 8.0f, 1.0f);
 
-    // Mod section (1 knob)
     auto modArea = bounds;
     g.setColour(kModColour.withAlpha(0.08f));
     g.fillRoundedRectangle(modArea.toFloat().reduced(2), 8.0f);
     g.setColour(kModColour.withAlpha(0.3f));
     g.drawRoundedRectangle(modArea.toFloat().reduced(2), 8.0f, 1.0f);
 
-    // Title
     g.setColour(juce::Colours::white.withAlpha(0.7f));
     g.setFont(juce::FontOptions(13.0f));
-    g.drawText("CloudsReverb", getLocalBounds().removeFromBottom(20),
-               juce::Justification::centred);
+    g.drawText("EMVerb", getLocalBounds().reduced(10, 6).removeFromTop(20),
+               juce::Justification::right);
 }
 
-void CloudsReverbEditor::resized()
+void EMVerbEditor::resized()
 {
     auto bounds = getLocalBounds().reduced(8);
 
     // Preset bar
     auto presetArea = bounds.removeFromTop(36);
-    presetBox.setBounds(presetArea.removeFromLeft(300));
-    presetArea.removeFromLeft(8);
-    saveButton.setBounds(presetArea.removeFromLeft(60));
+    presetBox.setBounds(presetArea.removeFromLeft(260));
+    presetArea.removeFromLeft(6);
+    saveButton.setBounds(presetArea.removeFromLeft(50));
     presetArea.removeFromLeft(4);
-    deleteButton.setBounds(presetArea.removeFromLeft(50));
+    deleteButton.setBounds(presetArea.removeFromLeft(42));
+
+    // Image controls on the right side of preset bar
+    presetArea.removeFromLeft(8);
+    loadImageButton.setBounds(presetArea.removeFromLeft(40));
+    presetArea.removeFromLeft(4);
+    opacityLabel.setBounds(presetArea.removeFromLeft(20).withHeight(16));
+    opacityKnob.setBounds(presetArea.removeFromLeft(34));
 
     bounds.removeFromTop(8);
 
     int knobW = bounds.getWidth() / 6;
-    int labelH = 22;
-    int knobH = bounds.getHeight() - labelH - 8;
+    int labelH = 11;
 
     auto placeKnob = [&](juce::Slider& knob, juce::Label& label,
                           juce::Rectangle<int> area)
     {
         label.setBounds(area.removeFromTop(labelH));
-        knob.setBounds(area.reduced(4));
+        knob.setBounds(area.reduced(2));
     };
 
-    // Reverb: Decay, Damping, Diffusion
     auto col = bounds.removeFromLeft(knobW);
     placeKnob(decayKnob, decayLabel, col);
     col = bounds.removeFromLeft(knobW);
@@ -189,13 +285,11 @@ void CloudsReverbEditor::resized()
     col = bounds.removeFromLeft(knobW);
     placeKnob(diffusionKnob, diffusionLabel, col);
 
-    // Mix: Mix, Gain
     col = bounds.removeFromLeft(knobW);
     placeKnob(mixKnob, mixLabel, col);
     col = bounds.removeFromLeft(knobW);
     placeKnob(inputGainKnob, inputGainLabel, col);
 
-    // Mod: Mod Speed
     col = bounds;
     placeKnob(modSpeedKnob, modSpeedLabel, col);
 }

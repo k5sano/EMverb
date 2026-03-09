@@ -2,11 +2,11 @@
 #include "PluginEditor.h"
 #include <cmath>
 
-CloudsReverbPlugin::CloudsReverbPlugin()
+EMVerbPlugin::EMVerbPlugin()
     : AudioProcessor(BusesProperties()
           .withInput("Input", juce::AudioChannelSet::stereo(), true)
           .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts(*this, nullptr, "PARAMETERS", CloudsReverbParams::createLayout()),
+      apvts(*this, nullptr, "PARAMETERS", EMVerbParams::createLayout()),
       presetManager(apvts)
 {
     decayParam     = apvts.getRawParameterValue("decay");
@@ -17,17 +17,17 @@ CloudsReverbPlugin::CloudsReverbPlugin()
     modSpeedParam  = apvts.getRawParameterValue("mod_speed");
 }
 
-void CloudsReverbPlugin::prepareToPlay(double sampleRate, int)
+void EMVerbPlugin::prepareToPlay(double sampleRate, int)
 {
     reverb_.prepare(sampleRate);
 }
 
-void CloudsReverbPlugin::releaseResources()
+void EMVerbPlugin::releaseResources()
 {
     reverb_.clear();
 }
 
-void CloudsReverbPlugin::processBlock(juce::AudioBuffer<float>& buffer,
+void EMVerbPlugin::processBlock(juce::AudioBuffer<float>& buffer,
                                        juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -53,19 +53,19 @@ void CloudsReverbPlugin::processBlock(juce::AudioBuffer<float>& buffer,
     reverb_.process(L, R, numSamples);
 }
 
-juce::AudioProcessorEditor* CloudsReverbPlugin::createEditor()
+juce::AudioProcessorEditor* EMVerbPlugin::createEditor()
 {
-    return new CloudsReverbEditor(*this);
+    return new EMVerbEditor(*this);
 }
 
-void CloudsReverbPlugin::getStateInformation(juce::MemoryBlock& destData)
+void EMVerbPlugin::getStateInformation(juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml(state.createXml());
     copyXmlToBinary(*xml, destData);
 }
 
-void CloudsReverbPlugin::setStateInformation(const void* data, int sizeInBytes)
+void EMVerbPlugin::setStateInformation(const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xml(getXmlFromBinary(data, sizeInBytes));
     if (xml != nullptr && xml->hasTagName(apvts.state.getType()))
@@ -74,5 +74,5 @@ void CloudsReverbPlugin::setStateInformation(const void* data, int sizeInBytes)
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new CloudsReverbPlugin();
+    return new EMVerbPlugin();
 }

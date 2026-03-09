@@ -2,7 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-namespace CloudsReverbParams {
+namespace EMVerbParams {
 
 inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 {
@@ -36,4 +36,4 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     return { params.begin(), params.end() };
 }
 
-} // namespace CloudsReverbParams
+} // namespace EMVerbParams
