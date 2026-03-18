@@ -27,6 +27,8 @@ public:
     void setDiffusion(float diffusion) { diffusion_ = diffusion; }
     void setLp(float lp)              { lp_ = lp; }
     void setModSpeed(float speed);
+    void setTanhEnabled(bool enabled)   { tanhEnabled_ = enabled; }
+    void setTanhThreshold(float thresh) { tanhThreshold_ = thresh; }
 
 private:
     // 32kHz reference tap lengths (Clouds original)
@@ -59,6 +61,8 @@ private:
     float reverbTime_ = 0.5f;
     float diffusion_  = 0.625f;
     float lp_         = 0.7f;
+    bool  tanhEnabled_   = true;
+    float tanhThreshold_ = 1.0f;
 
     float lpDecay1_ = 0.0f;
     float lpDecay2_ = 0.0f;
@@ -95,6 +99,10 @@ private:
     }
 
     float interpRead(int base, int maxLen, float offset) const;
+
+    inline float saturate(float x, float drive = 0.7f) {
+        return std::tanh(x * drive) / drive;
+    }
 
     static int nextPow2(int n);
     int scaleTap(int refTap) const;

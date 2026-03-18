@@ -14,7 +14,9 @@ EMVerbPlugin::EMVerbPlugin()
     diffusionParam = apvts.getRawParameterValue("diffusion");
     amountParam    = apvts.getRawParameterValue("amount");
     inputGainParam = apvts.getRawParameterValue("input_gain");
-    modSpeedParam  = apvts.getRawParameterValue("mod_speed");
+    modSpeedParam      = apvts.getRawParameterValue("mod_speed");
+    tanhEnabledParam   = apvts.getRawParameterValue("tanh_enabled");
+    tanhThresholdParam = apvts.getRawParameterValue("tanh_threshold");
 }
 
 void EMVerbPlugin::prepareToPlay(double sampleRate, int)
@@ -46,6 +48,8 @@ void EMVerbPlugin::processBlock(juce::AudioBuffer<float>& buffer,
     reverb_.setAmount(amountParam->load());
     reverb_.setInputGain(gainLin);
     reverb_.setModSpeed(modSpeedParam->load());
+    reverb_.setTanhEnabled(tanhEnabledParam->load() >= 0.5f);
+    reverb_.setTanhThreshold(tanhThresholdParam->load());
 
     float* L = buffer.getWritePointer(0);
     float* R = buffer.getWritePointer(1);

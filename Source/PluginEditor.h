@@ -23,10 +23,17 @@ private:
     juce::Label decayLabel, dampingLabel, diffusionLabel;
     juce::Label mixLabel, inputGainLabel, modSpeedLabel;
 
+    // Tanh controls
+    juce::ToggleButton tanhToggle{"Tanh"};
+    juce::Slider tanhThresholdKnob;
+    juce::Label tanhThresholdLabel;
+
     // Attachments
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
         decayAtt, dampingAtt, diffusionAtt,
-        mixAtt, inputGainAtt, modSpeedAtt;
+        mixAtt, inputGainAtt, modSpeedAtt, tanhThresholdAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+        tanhEnabledAtt;
 
     // Preset controls
     juce::ComboBox presetBox;

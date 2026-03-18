@@ -164,11 +164,8 @@ void DattorroReverb::process(float* inOutL, float* inOutR,
         --writePtr_;
         if (writePtr_ < 0) writePtr_ += bufferSize_;
 
-        if ((writePtr_ & 31) == 0)
-        {
-            lfoValue_[0] = lfo_[0].next();
-            lfoValue_[1] = lfo_[1].next();
-        }
+        lfoValue_[0] = lfo_[0].next();
+        lfoValue_[1] = lfo_[1].next();
 
         acc_ = 0.0f;
         prevRead_ = 0.0f;
@@ -234,6 +231,7 @@ void DattorroReverb::process(float* inOutL, float* inOutR,
         acc_ *= -kap;
         acc_ += prevRead_;
 
+        acc_ = saturate(acc_, 0.7f);
         bufWrite(writePtr_ + baseDel1_, acc_);
         wet = acc_;
         inOutL[i] += (wet - inOutL[i]) * amt;
@@ -257,12 +255,17 @@ void DattorroReverb::process(float* inOutL, float* inOutR,
         acc_ *= kap;
         acc_ += prevRead_;
 
+        acc_ = saturate(acc_, 0.7f);
         bufWrite(writePtr_ + baseDel2_, acc_);
         wet = acc_;
         inOutR[i] += (wet - inOutR[i]) * amt;
 
-        // Soft clamp
-        inOutL[i] = std::max(-4.0f, std::min(4.0f, inOutL[i]));
-        inOutR[i] = std::max(-4.0f, std::min(4.0f, inOutR[i]));
+        // Soft clip (tanh with threshold)
+        if (tanhEnabled_)
+        {
+            float t = tanhThreshold_;
+            inOutL[i] = std::tanh(inOutL[i] / t) * t;
+            inOutR[i] = std::tanh(inOutR[i] / t) * t;
+        }
     }
 }

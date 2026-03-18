@@ -33,6 +33,14 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         juce::ParameterID{"mod_speed", 1}, "Mod Speed",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
 
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"tanh_enabled", 1}, "Tanh",
+        true));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"tanh_threshold", 1}, "Tanh Threshold",
+        juce::NormalisableRange<float>(0.1f, 2.0f, 0.01f), 1.0f));
+
     return { params.begin(), params.end() };
 }
 

@@ -28,6 +28,14 @@ EMVerbEditor::EMVerbEditor(EMVerbPlugin& p)
     inputGainAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "input_gain", inputGainKnob);
     modSpeedAtt  = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "mod_speed",  modSpeedKnob);
 
+    // Tanh controls
+    addAndMakeVisible(tanhToggle);
+    tanhToggle.setColour(juce::ToggleButton::tickColourId, kModColour);
+    tanhEnabledAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(p.apvts, "tanh_enabled", tanhToggle);
+
+    setupKnob(tanhThresholdKnob, tanhThresholdLabel, "Thresh", kModColour);
+    tanhThresholdAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "tanh_threshold", tanhThresholdKnob);
+
     // Preset controls
     addAndMakeVisible(presetBox);
     presetBox.setTextWhenNothingSelected("-- Presets --");
@@ -104,7 +112,7 @@ EMVerbEditor::EMVerbEditor(EMVerbPlugin& p)
 
     refreshPresetList();
     restoreImagePath();
-    setSize(620, 340);
+    setSize(720, 340);
 }
 
 void EMVerbEditor::setupKnob(juce::Slider& knob,
@@ -221,7 +229,7 @@ void EMVerbEditor::paint(juce::Graphics& g)
     bounds.removeFromTop(36);
     bounds.removeFromTop(8);
 
-    int knobW = bounds.getWidth() / 6;
+    int knobW = bounds.getWidth() / 8;
 
     auto reverbArea = bounds.removeFromLeft(knobW * 3);
     g.setColour(kReverbColour.withAlpha(0.08f));
@@ -268,7 +276,7 @@ void EMVerbEditor::resized()
 
     bounds.removeFromTop(8);
 
-    int knobW = bounds.getWidth() / 6;
+    int knobW = bounds.getWidth() / 8;
     int labelH = 11;
 
     auto placeKnob = [&](juce::Slider& knob, juce::Label& label,
@@ -290,6 +298,15 @@ void EMVerbEditor::resized()
     col = bounds.removeFromLeft(knobW);
     placeKnob(inputGainKnob, inputGainLabel, col);
 
-    col = bounds;
+    col = bounds.removeFromLeft(knobW);
     placeKnob(modSpeedKnob, modSpeedLabel, col);
+
+    // Tanh section
+    col = bounds.removeFromLeft(knobW);
+    auto tanhCol = col;
+    tanhToggle.setBounds(tanhCol.removeFromTop(labelH + 16));
+    tanhCol.removeFromTop(2);
+
+    col = bounds;
+    placeKnob(tanhThresholdKnob, tanhThresholdLabel, col);
 }

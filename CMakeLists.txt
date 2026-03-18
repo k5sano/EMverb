@@ -71,7 +71,7 @@ if(BUILD_TESTS)
             target_compile_definitions(EMVerbTests PRIVATE _USE_MATH_DEFINES)
         endif()
 
-        include(Catch2::Catch)
+        include(Catch)
         catch_discover_tests(EMVerbTests)
     endif()
 endif()

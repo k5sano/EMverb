@@ -41,6 +41,8 @@ private:
     std::atomic<float>* amountParam = nullptr;
     std::atomic<float>* inputGainParam = nullptr;
     std::atomic<float>* modSpeedParam = nullptr;
+    std::atomic<float>* tanhEnabledParam = nullptr;
+    std::atomic<float>* tanhThresholdParam = nullptr;
 
     DattorroReverb reverb_;
 
