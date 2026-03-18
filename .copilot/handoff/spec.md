@@ -1,3 +1,1 @@
-# Simple Gain Plugin
-
-ゲインプラグインの仕様...
+\\n\\n# Simple Gain Plugin\\n\\nゲインプラグインの仕様...\\n
