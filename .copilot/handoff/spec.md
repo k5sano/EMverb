@@ -1,0 +1,3 @@
+# Simple Gain Plugin
+
+ゲインプラグインの仕様...
