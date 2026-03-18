@@ -255,6 +255,12 @@ void EMVerbEditor::paint(juce::Graphics& g)
     g.setFont(juce::FontOptions(13.0f));
     g.drawText("EMVerb", getLocalBounds().reduced(10, 6).removeFromTop(20),
                juce::Justification::right);
+
+    g.setColour(juce::Colours::white.withAlpha(0.35f));
+    g.setFont(juce::FontOptions(10.0f));
+    g.drawText("DSP based on Mutable Instruments Clouds by Emilie Gillet (MIT License)",
+               getLocalBounds().reduced(10, 6).removeFromBottom(14),
+               juce::Justification::left);
 }
 
 void EMVerbEditor::resized()
