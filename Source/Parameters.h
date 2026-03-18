@@ -13,11 +13,11 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID{"damping", 1}, "Hi Cut",
+        juce::ParameterID{"damping", 1}, "HicutFilt",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.7f));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID{"lo_cut", 1}, "Lo Cut",
+        juce::ParameterID{"lo_cut", 1}, "LocutFilt",
         juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(

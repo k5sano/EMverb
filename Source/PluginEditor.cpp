@@ -10,8 +10,8 @@ EMVerbEditor::EMVerbEditor(EMVerbPlugin& p)
 {
     // Reverb block (blue)
     setupKnob(decayKnob,     decayLabel,     "Decay",     kReverbColour);
-    setupKnob(dampingKnob,   dampingLabel,   "Hi Cut",    kReverbColour);
-    setupKnob(loCutKnob,     loCutLabel,     "Lo Cut",    kReverbColour);
+    setupKnob(dampingKnob,   dampingLabel,   "HicutFilt", kReverbColour);
+    setupKnob(loCutKnob,     loCutLabel,     "LocutFilt", kReverbColour);
     setupKnob(diffusionKnob, diffusionLabel, "Diffusion", kReverbColour);
 
     // Mix block (green)
