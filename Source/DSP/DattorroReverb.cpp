@@ -106,11 +106,12 @@ void DattorroReverb::prepare(double sampleRate)
     loopModBase_   = 4680.0f * ratioScale_;
     loopModAmp_    = 100.0f  * ratioScale_;
 
-    // Clamp so LFO max doesn't exceed del2 range
+    // Clamp so LFO max doesn't exceed del2 or del1 range
+    int minDelTap = std::min(tapDel1_, tapDel2_);
     float maxMod = loopModBase_ + loopModAmp_;
-    if (maxMod >= static_cast<float>(tapDel2_ - 2))
+    if (maxMod >= static_cast<float>(minDelTap - 2))
     {
-        float available = static_cast<float>(tapDel2_ - 2);
+        float available = static_cast<float>(minDelTap - 2);
         loopModBase_ = available - loopModAmp_;
         if (loopModBase_ < 0.0f)
         {
@@ -132,8 +133,8 @@ void DattorroReverb::clear()
         std::memset(buffer_.get(), 0,
             sizeof(float) * static_cast<size_t>(bufferSize_));
     writePtr_ = 0;
-    lpDecay1_ = 0.0f;
-    lpDecay2_ = 0.0f;
+    svfA_.reset();
+    svfB_.reset();
     lfoValue_[0] = 0.0f;
     lfoValue_[1] = 0.0f;
 }
@@ -154,10 +155,14 @@ void DattorroReverb::process(float* inOutL, float* inOutR,
                               int numSamples)
 {
     const float kap  = diffusion_;
-    const float klp  = lp_;
     const float krt  = reverbTime_;
     const float amt  = amount_;
     const float gain = inputGain_;
+
+    // Map damping (0..1) to SVF cutoff: 200Hz at 0, 20kHz at 1 (log scale)
+    float cutoffHz = 200.0f * std::pow(100.0f, lp_);
+    float cutoffNorm = cutoffHz / static_cast<float>(sampleRate_);
+    cutoffNorm = std::min(cutoffNorm, 0.49f);
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -216,8 +221,7 @@ void DattorroReverb::process(float* inOutL, float* inOutR,
                      + loopModAmp_ * lfoValue_[1];
         acc_ += interpRead(baseDel2_, tapDel2_, modOfs) * krt;
 
-        lpDecay1_ += klp * (acc_ - lpDecay1_);
-        acc_ = lpDecay1_;
+        acc_ = svfA_.process(acc_, cutoffNorm);
 
         prevRead_ = bufRead(writePtr_ + baseDap1a_ + tapDap1a_ - 1);
         acc_ += prevRead_ * (-kap);
@@ -238,10 +242,11 @@ void DattorroReverb::process(float* inOutL, float* inOutR,
 
         // Loop side B
         acc_ = apout;
-        acc_ += bufRead(writePtr_ + baseDel1_ + tapDel1_ - 1) * krt;
+        float modOfsA = loopModBase_ * 0.7f
+                      + loopModAmp_ * 0.7f * lfoValue_[0];
+        acc_ += interpRead(baseDel1_, tapDel1_, modOfsA) * krt;
 
-        lpDecay2_ += klp * (acc_ - lpDecay2_);
-        acc_ = lpDecay2_;
+        acc_ = svfB_.process(acc_, cutoffNorm);
 
         prevRead_ = bufRead(writePtr_ + baseDap2a_ + tapDap2a_ - 1);
         acc_ += prevRead_ * kap;

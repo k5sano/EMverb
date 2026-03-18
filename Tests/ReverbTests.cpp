@@ -219,6 +219,138 @@ TEST_CASE("Works at 96000Hz", "[reverb]")
 }
 
 // ============================================================
+// SVF & LFO Modulation Tests
+// ============================================================
+
+TEST_CASE("SVF damping=0 cuts high frequencies", "[svf]")
+{
+    // damping=0 → cutoff ~200Hz, so 10kHz should be heavily attenuated
+    DattorroReverb rev;
+    rev.prepare(48000.0);
+    rev.setDecay(0.0f);   // no feedback
+    rev.setLp(0.0f);      // damping=0 → 200Hz cutoff
+    rev.setDiffusion(0.625f);
+    rev.setAmount(1.0f);
+    rev.setInputGain(1.0f);
+    rev.setModSpeed(0.0f);
+    rev.setTanhEnabled(false);
+
+    constexpr int N = 48000;
+
+    // 1kHz test
+    std::vector<float> L1(N), R1(N);
+    for (int i = 0; i < N; ++i)
+    {
+        float v = 0.5f * std::sin(2.0f * static_cast<float>(M_PI) * 1000.0f * i / 48000.0f);
+        L1[i] = v; R1[i] = v;
+    }
+    rev.process(L1.data(), R1.data(), N);
+    float rms1k = rms(L1.data() + N / 2, N / 2);
+
+    // 10kHz test
+    rev.clear();
+    std::vector<float> L10(N), R10(N);
+    for (int i = 0; i < N; ++i)
+    {
+        float v = 0.5f * std::sin(2.0f * static_cast<float>(M_PI) * 10000.0f * i / 48000.0f);
+        L10[i] = v; R10[i] = v;
+    }
+    rev.process(L10.data(), R10.data(), N);
+    float rms10k = rms(L10.data() + N / 2, N / 2);
+
+    INFO("rms1k=" << rms1k << " rms10k=" << rms10k);
+    // 10kHz should be much quieter than 1kHz with low damping
+    REQUIRE(rms10k < rms1k);
+}
+
+// ============================================================
+TEST_CASE("SVF damping=1 passes high frequencies", "[svf]")
+{
+    DattorroReverb rev;
+    rev.prepare(48000.0);
+    rev.setDecay(0.0f);
+    rev.setLp(1.0f);      // damping=1 → 20kHz cutoff, nearly open
+    rev.setDiffusion(0.625f);
+    rev.setAmount(1.0f);
+    rev.setInputGain(1.0f);
+    rev.setModSpeed(0.0f);
+    rev.setTanhEnabled(false);
+
+    constexpr int N = 48000;
+
+    // 1kHz
+    std::vector<float> L1(N), R1(N);
+    for (int i = 0; i < N; ++i)
+    {
+        float v = 0.5f * std::sin(2.0f * static_cast<float>(M_PI) * 1000.0f * i / 48000.0f);
+        L1[i] = v; R1[i] = v;
+    }
+    rev.process(L1.data(), R1.data(), N);
+    float rms1k = rms(L1.data() + N / 2, N / 2);
+
+    // 10kHz
+    rev.clear();
+    std::vector<float> L10(N), R10(N);
+    for (int i = 0; i < N; ++i)
+    {
+        float v = 0.5f * std::sin(2.0f * static_cast<float>(M_PI) * 10000.0f * i / 48000.0f);
+        L10[i] = v; R10[i] = v;
+    }
+    rev.process(L10.data(), R10.data(), N);
+    float rms10k = rms(L10.data() + N / 2, N / 2);
+
+    INFO("rms1k=" << rms1k << " rms10k=" << rms10k);
+    // With damping=1, 10kHz should still have significant level
+    // (at least 10% of 1kHz level)
+    REQUIRE(rms10k > rms1k * 0.1f);
+}
+
+// ============================================================
+TEST_CASE("Loop A LFO modulation affects output", "[lfo]")
+{
+    constexpr int N = 48000;
+
+    // With modulation off
+    DattorroReverb rev0;
+    rev0.prepare(48000.0);
+    rev0.setDecay(0.7f);
+    rev0.setLp(0.7f);
+    rev0.setDiffusion(0.625f);
+    rev0.setAmount(1.0f);
+    rev0.setInputGain(1.0f);
+    rev0.setModSpeed(0.0f);
+    rev0.setTanhEnabled(false);
+
+    std::vector<float> L0(N, 0.0f), R0(N, 0.0f);
+    L0[0] = 1.0f; R0[0] = 1.0f;
+    rev0.process(L0.data(), R0.data(), N);
+
+    // With modulation on
+    DattorroReverb rev1;
+    rev1.prepare(48000.0);
+    rev1.setDecay(0.7f);
+    rev1.setLp(0.7f);
+    rev1.setDiffusion(0.625f);
+    rev1.setAmount(1.0f);
+    rev1.setInputGain(1.0f);
+    rev1.setModSpeed(1.0f);
+    rev1.setTanhEnabled(false);
+
+    std::vector<float> L1(N, 0.0f), R1(N, 0.0f);
+    L1[0] = 1.0f; R1[0] = 1.0f;
+    rev1.process(L1.data(), R1.data(), N);
+
+    // Outputs should differ due to modulation
+    float diff = 0.0f;
+    for (int i = 0; i < N; ++i)
+        diff += std::abs(L0[i] - L1[i]);
+    diff /= static_cast<float>(N);
+
+    INFO("avg sample diff=" << diff);
+    REQUIRE(diff > 1e-5f);
+}
+
+// ============================================================
 // Tanh-off Tests
 // ============================================================
 

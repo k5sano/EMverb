@@ -35,6 +35,11 @@ cmake --build build/
 ctest --test-dir build/
 ```
 
+## Git リモート
+
+-   push/pull は必ず SSH 経由で行うこと（HTTPS不可）。
+-   リモートURLは `git@github.com:k5sano/EMverb.git` を使用すること。
+
 ## コミット前チェック
 
 `cmake --build build/` が成功すること。

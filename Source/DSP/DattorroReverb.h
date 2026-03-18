@@ -6,6 +6,10 @@
 #include <cstdint>
 #include <memory>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 /// Dattorro plate reverb — standalone reimplementation of
 /// Mutable Instruments Clouds reverb (clouds/dsp/fx/reverb.h).
 /// No external dependencies (eurorack / stmlib).
@@ -64,8 +68,19 @@ private:
     bool  tanhEnabled_   = true;
     float tanhThreshold_ = 1.0f;
 
-    float lpDecay1_ = 0.0f;
-    float lpDecay2_ = 0.0f;
+    struct SVF {
+        float low = 0.0f, band = 0.0f;
+        float process(float in, float cutoffNorm, float q = 0.5f)
+        {
+            float f = 2.0f * std::sin(static_cast<float>(M_PI) * cutoffNorm);
+            f = std::min(f, 0.99f);
+            band += f * (in - low - q * band);
+            low  += f * band;
+            return low;
+        }
+        void reset() { low = band = 0.0f; }
+    };
+    SVF svfA_, svfB_;
 
     struct CosineOsc {
         float phase = 0.0f;
