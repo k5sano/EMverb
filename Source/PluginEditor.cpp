@@ -287,11 +287,14 @@ void EMVerbEditor::resized()
     int knobW = bounds.getWidth() / 9;
     int labelH = 11;
 
+    // Reserve space for credit line at bottom
+    bounds.removeFromBottom(18);
+
     auto placeKnob = [&](juce::Slider& knob, juce::Label& label,
                           juce::Rectangle<int> area)
     {
         label.setBounds(area.removeFromTop(labelH));
-        knob.setBounds(area.reduced(2));
+        knob.setBounds(area.reduced(0));
     };
 
     auto col = bounds.removeFromLeft(knobW);
