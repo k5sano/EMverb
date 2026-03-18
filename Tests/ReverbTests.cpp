@@ -351,6 +351,51 @@ TEST_CASE("Loop A LFO modulation affects output", "[lfo]")
 }
 
 // ============================================================
+TEST_CASE("SVF does not oscillate with sustained input", "[svf][stability]")
+{
+    // This test catches SVF resonance issues inside the feedback loop
+    constexpr float dampings[] = {0.0f, 0.3f, 0.5f, 0.7f, 1.0f};
+    constexpr float decays[]   = {0.5f, 0.9f, 0.99f};
+    constexpr int N = 96000; // 2 seconds
+
+    for (float damp : dampings)
+    for (float decay : decays)
+    {
+        DattorroReverb rev;
+        rev.prepare(48000.0);
+        rev.setDecay(decay);
+        rev.setLp(damp);
+        rev.setDiffusion(0.625f);
+        rev.setAmount(1.0f);
+        rev.setInputGain(1.0f);
+        rev.setModSpeed(0.5f);
+        rev.setTanhEnabled(false); // no safety net
+
+        std::vector<float> L(N), R(N);
+        // Sustained pink-ish noise approximation (multi-freq sine mix)
+        for (int i = 0; i < N; ++i)
+        {
+            float v = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 440.0f * i / 48000.0f)
+                    + 0.2f * std::sin(2.0f * static_cast<float>(M_PI) * 1200.0f * i / 48000.0f)
+                    + 0.1f * std::sin(2.0f * static_cast<float>(M_PI) * 5000.0f * i / 48000.0f);
+            L[i] = v;
+            R[i] = v;
+        }
+
+        rev.process(L.data(), R.data(), N);
+
+        // Check last quarter for oscillation / blowup
+        int checkStart = N * 3 / 4;
+        int checkLen = N / 4;
+        float pk = peakAbs(L.data() + checkStart, checkLen);
+
+        INFO("damp=" << damp << " decay=" << decay << " peak=" << pk);
+        REQUIRE_FALSE(hasNanOrInf(L.data(), N));
+        REQUIRE(pk < 4.0f); // generous but catches runaway
+    }
+}
+
+// ============================================================
 // Tanh-off Tests
 // ============================================================
 

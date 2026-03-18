@@ -16,11 +16,11 @@ private:
     EMVerbPlugin& processor;
 
     // Knobs
-    juce::Slider decayKnob, dampingKnob, diffusionKnob;
+    juce::Slider decayKnob, dampingKnob, loCutKnob, diffusionKnob;
     juce::Slider mixKnob, inputGainKnob, modSpeedKnob;
 
     // Labels
-    juce::Label decayLabel, dampingLabel, diffusionLabel;
+    juce::Label decayLabel, dampingLabel, loCutLabel, diffusionLabel;
     juce::Label mixLabel, inputGainLabel, modSpeedLabel;
 
     // Tanh controls
@@ -30,7 +30,7 @@ private:
 
     // Attachments
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
-        decayAtt, dampingAtt, diffusionAtt,
+        decayAtt, dampingAtt, loCutAtt, diffusionAtt,
         mixAtt, inputGainAtt, modSpeedAtt, tanhThresholdAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
         tanhEnabledAtt;

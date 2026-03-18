@@ -37,6 +37,7 @@ public:
 private:
     std::atomic<float>* decayParam = nullptr;
     std::atomic<float>* dampingParam = nullptr;
+    std::atomic<float>* loCutParam = nullptr;
     std::atomic<float>* diffusionParam = nullptr;
     std::atomic<float>* amountParam = nullptr;
     std::atomic<float>* inputGainParam = nullptr;

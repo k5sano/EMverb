@@ -10,7 +10,8 @@ EMVerbEditor::EMVerbEditor(EMVerbPlugin& p)
 {
     // Reverb block (blue)
     setupKnob(decayKnob,     decayLabel,     "Decay",     kReverbColour);
-    setupKnob(dampingKnob,   dampingLabel,   "Damping",   kReverbColour);
+    setupKnob(dampingKnob,   dampingLabel,   "Hi Cut",    kReverbColour);
+    setupKnob(loCutKnob,     loCutLabel,     "Lo Cut",    kReverbColour);
     setupKnob(diffusionKnob, diffusionLabel, "Diffusion", kReverbColour);
 
     // Mix block (green)
@@ -23,6 +24,7 @@ EMVerbEditor::EMVerbEditor(EMVerbPlugin& p)
     // Attachments
     decayAtt     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "decay",      decayKnob);
     dampingAtt   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "damping",    dampingKnob);
+    loCutAtt     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "lo_cut",     loCutKnob);
     diffusionAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "diffusion",  diffusionKnob);
     mixAtt       = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "amount",     mixKnob);
     inputGainAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts, "input_gain", inputGainKnob);
@@ -112,7 +114,7 @@ EMVerbEditor::EMVerbEditor(EMVerbPlugin& p)
 
     refreshPresetList();
     restoreImagePath();
-    setSize(720, 340);
+    setSize(810, 340);
 }
 
 void EMVerbEditor::setupKnob(juce::Slider& knob,
@@ -229,9 +231,9 @@ void EMVerbEditor::paint(juce::Graphics& g)
     bounds.removeFromTop(36);
     bounds.removeFromTop(8);
 
-    int knobW = bounds.getWidth() / 8;
+    int knobW = bounds.getWidth() / 9;
 
-    auto reverbArea = bounds.removeFromLeft(knobW * 3);
+    auto reverbArea = bounds.removeFromLeft(knobW * 4);
     g.setColour(kReverbColour.withAlpha(0.08f));
     g.fillRoundedRectangle(reverbArea.toFloat().reduced(2), 8.0f);
     g.setColour(kReverbColour.withAlpha(0.3f));
@@ -276,7 +278,7 @@ void EMVerbEditor::resized()
 
     bounds.removeFromTop(8);
 
-    int knobW = bounds.getWidth() / 8;
+    int knobW = bounds.getWidth() / 9;
     int labelH = 11;
 
     auto placeKnob = [&](juce::Slider& knob, juce::Label& label,
@@ -290,6 +292,8 @@ void EMVerbEditor::resized()
     placeKnob(decayKnob, decayLabel, col);
     col = bounds.removeFromLeft(knobW);
     placeKnob(dampingKnob, dampingLabel, col);
+    col = bounds.removeFromLeft(knobW);
+    placeKnob(loCutKnob, loCutLabel, col);
     col = bounds.removeFromLeft(knobW);
     placeKnob(diffusionKnob, diffusionLabel, col);
 

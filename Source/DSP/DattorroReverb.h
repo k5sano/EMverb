@@ -30,6 +30,7 @@ public:
     void setDecay(float time)          { reverbTime_ = time; }
     void setDiffusion(float diffusion) { diffusion_ = diffusion; }
     void setLp(float lp)              { lp_ = lp; }
+    void setHp(float hp)              { hp_ = hp; }
     void setModSpeed(float speed);
     void setTanhEnabled(bool enabled)   { tanhEnabled_ = enabled; }
     void setTanhThreshold(float thresh) { tanhThreshold_ = thresh; }
@@ -65,22 +66,26 @@ private:
     float reverbTime_ = 0.5f;
     float diffusion_  = 0.625f;
     float lp_         = 0.7f;
+    float hp_         = 0.0f;
     bool  tanhEnabled_   = true;
     float tanhThreshold_ = 1.0f;
 
     struct SVF {
         float low = 0.0f, band = 0.0f;
-        float process(float in, float cutoffNorm, float q = 0.5f)
+        float process(float in, float cutoffNorm)
         {
+            // Overdamped (q=1.5) to avoid resonance inside feedback loop
+            constexpr float q = 1.5f;
             float f = 2.0f * std::sin(static_cast<float>(M_PI) * cutoffNorm);
-            f = std::min(f, 0.99f);
+            f = std::min(f, 0.85f); // conservative clamp for stability in feedback
             band += f * (in - low - q * band);
             low  += f * band;
             return low;
         }
         void reset() { low = band = 0.0f; }
     };
-    SVF svfA_, svfB_;
+    SVF svfA_, svfB_;       // LPF (high-cut)
+    SVF hpfA_, hpfB_;       // HPF (low-cut)
 
     struct CosineOsc {
         float phase = 0.0f;

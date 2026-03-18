@@ -135,6 +135,8 @@ void DattorroReverb::clear()
     writePtr_ = 0;
     svfA_.reset();
     svfB_.reset();
+    hpfA_.reset();
+    hpfB_.reset();
     lfoValue_[0] = 0.0f;
     lfoValue_[1] = 0.0f;
 }
@@ -159,10 +161,15 @@ void DattorroReverb::process(float* inOutL, float* inOutR,
     const float amt  = amount_;
     const float gain = inputGain_;
 
-    // Map damping (0..1) to SVF cutoff: 200Hz at 0, 20kHz at 1 (log scale)
-    float cutoffHz = 200.0f * std::pow(100.0f, lp_);
-    float cutoffNorm = cutoffHz / static_cast<float>(sampleRate_);
-    cutoffNorm = std::min(cutoffNorm, 0.49f);
+    // Map damping (0..1) to LPF cutoff: 200Hz at 0, 20kHz at 1 (log scale)
+    float lpCutoffHz = 200.0f * std::pow(100.0f, lp_);
+    float lpCutoffNorm = lpCutoffHz / static_cast<float>(sampleRate_);
+    lpCutoffNorm = std::min(lpCutoffNorm, 0.49f);
+
+    // Map lo_cut (0..1) to HPF cutoff: 20Hz at 0, 2kHz at 1 (log scale)
+    float hpCutoffHz = 20.0f * std::pow(100.0f, hp_);
+    float hpCutoffNorm = hpCutoffHz / static_cast<float>(sampleRate_);
+    hpCutoffNorm = std::min(hpCutoffNorm, 0.49f);
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -221,7 +228,8 @@ void DattorroReverb::process(float* inOutL, float* inOutR,
                      + loopModAmp_ * lfoValue_[1];
         acc_ += interpRead(baseDel2_, tapDel2_, modOfs) * krt;
 
-        acc_ = svfA_.process(acc_, cutoffNorm);
+        acc_ = svfA_.process(acc_, lpCutoffNorm);
+        acc_ -= hpfA_.process(acc_, hpCutoffNorm);
 
         prevRead_ = bufRead(writePtr_ + baseDap1a_ + tapDap1a_ - 1);
         acc_ += prevRead_ * (-kap);
@@ -246,7 +254,8 @@ void DattorroReverb::process(float* inOutL, float* inOutR,
                       + loopModAmp_ * 0.7f * lfoValue_[0];
         acc_ += interpRead(baseDel1_, tapDel1_, modOfsA) * krt;
 
-        acc_ = svfB_.process(acc_, cutoffNorm);
+        acc_ = svfB_.process(acc_, lpCutoffNorm);
+        acc_ -= hpfB_.process(acc_, hpCutoffNorm);
 
         prevRead_ = bufRead(writePtr_ + baseDap2a_ + tapDap2a_ - 1);
         acc_ += prevRead_ * kap;

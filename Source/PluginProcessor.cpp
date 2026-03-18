@@ -11,6 +11,7 @@ EMVerbPlugin::EMVerbPlugin()
 {
     decayParam     = apvts.getRawParameterValue("decay");
     dampingParam   = apvts.getRawParameterValue("damping");
+    loCutParam     = apvts.getRawParameterValue("lo_cut");
     diffusionParam = apvts.getRawParameterValue("diffusion");
     amountParam    = apvts.getRawParameterValue("amount");
     inputGainParam = apvts.getRawParameterValue("input_gain");
@@ -44,6 +45,7 @@ void EMVerbPlugin::processBlock(juce::AudioBuffer<float>& buffer,
 
     reverb_.setDecay(decayParam->load());
     reverb_.setLp(dampingParam->load());
+    reverb_.setHp(loCutParam->load());
     reverb_.setDiffusion(diffusionParam->load());
     reverb_.setAmount(amountParam->load());
     reverb_.setInputGain(gainLin);
